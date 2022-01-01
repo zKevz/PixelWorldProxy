@@ -1,0 +1,11 @@
+[package]
+name = "pixelworld_proxy"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+bson = "2.0.0"
+byteorder = "1.4.3"
+dns-lookup = "1.0.8"
