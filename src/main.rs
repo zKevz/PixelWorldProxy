@@ -21,7 +21,7 @@ use bson::Document;
 use dns_lookup::lookup_host;
 
 const ENABLE_LOGGING: bool = true;
-const ENABLE_PING_LOGGING: bool = false;
+const ENABLE_PING_LOGGING: bool = true;
 static mut CURRENT_IP: String = String::new();
 
 fn encode_bson(document: &mut Document, vec: &mut Vec<u8>) -> Result<()> {
@@ -44,17 +44,41 @@ fn send(from: &mut TcpStream, to: &mut TcpStream, from_server: bool) -> Result<(
                 return Err(Error::new(ErrorKind::Other, "Disconnected!"));
             }
 
+            if !from_server && buffer_size > 1024 {
+                panic!("Client send packet with size more than 1024!");
+            }
+
             let received_data = &mut buffer[..buffer_size].to_vec();
             let mut received_data_bson = &received_data[4..];
 
             match Document::from_reader(&mut received_data_bson) {
                 Ok(mut document) => {
                     let message_count = document.get_i32("mc").unwrap();
-                    let mut is_ping_packet = false;
+                    let mut ignore_packet = false;
 
                     for i in 0..message_count {
                         let message_document = document.get_document_mut(format!("m{}", i)).unwrap();
                         let message_id = message_document.get_str("ID").unwrap();
+
+                        if let Ok(player_data) = message_document.get_binary_generic("pD") {
+                            match Document::from_reader(&mut player_data.as_slice()) {
+                                Ok(doc) => {
+                                    println!("Player data: {}", doc);    
+                                    if let Ok(inv) = doc.get_binary_generic("inv") {
+                                        for i in inv.iter() {
+                                            print!("{:02x}", i);
+                                        }
+                                        println!("");
+                                    }
+                                }
+
+                                _ => {}
+                            }
+                            // for i in player_data.iter() {
+                            //     print!("{:02x}", i);
+                            // }
+                            // println!("");
+                        }
 
                         match message_id {
                             "OoIP" => { // subserver switching
@@ -66,23 +90,26 @@ fn send(from: &mut TcpStream, to: &mut TcpStream, from_server: bool) -> Result<(
 
                                             unsafe {
                                                 CURRENT_IP = first.to_string().to_owned();
-                                            };
+                                                if CURRENT_IP == "127.0.0.1" {
+                                                    CURRENT_IP = String::from("44.194.163.69");
+                                                }
 
-                                            println!("Connecting to {}", first.to_string().as_str());
+                                                println!("Connecting to {}", CURRENT_IP);
 
-                                            match connect(first.to_string().as_str()) {
-                                                Ok(stream) => {
-                                                    *from = stream;
+                                                match connect(CURRENT_IP.as_str()) {
+                                                    Ok(stream) => {
+                                                        *from = stream;
 
-                                                    if message_document.insert("IP", "prod.gamev80.portalworldsgame.com").is_none() {
-                                                        println!("Error setting ID to prod.gamev80.portalworldsgame.com!");
-                                                    }
-                                                    else if encode_bson(&mut document, received_data).is_err() {
-                                                        println!("Error encoding bson!");
-                                                    }
-                                                },
-                        
-                                                Err(e) => println!("Failed to redirect to pixel world server! Error: {}", e)
+                                                        if message_document.insert("IP", "prod.gamev80.portalworldsgame.com").is_none() {
+                                                            println!("Error setting ID to prod.gamev80.portalworldsgame.com!");
+                                                        }
+                                                        else if encode_bson(&mut document, received_data).is_err() {
+                                                            println!("Error encoding bson!");
+                                                        }
+                                                    },
+                            
+                                                    Err(e) => println!("Failed to redirect to pixel world server! Error: {}", e)
+                                                }
                                             }
                                         } else {
                                             println!("Ips empty?? sus.. ({})", ip);
@@ -95,9 +122,14 @@ fn send(from: &mut TcpStream, to: &mut TcpStream, from_server: bool) -> Result<(
                                     }
                                 }
                             },
+                            
+                            "GPd" => {
+                                //println!("{:?}", received_data);
+                                
+                            }
 
                             "ST" => {
-                                is_ping_packet = true;
+                                ignore_packet = true;
                             },
 
                             "WCM" => {
@@ -110,17 +142,19 @@ fn send(from: &mut TcpStream, to: &mut TcpStream, from_server: bool) -> Result<(
 
                             "p" | "mP" => {
                                 if message_count == 1 && message_document.len() == 1 {
-                                    is_ping_packet = true;
+                                    ignore_packet = true;
                                 }
                             }
 
                             _ => {}
                         }
+
+                        
                     }
 
                     if message_count > 0 {
                         if ENABLE_LOGGING {
-                            if !is_ping_packet || ENABLE_PING_LOGGING {
+                            if !ignore_packet || ENABLE_PING_LOGGING {
                                 let identifier = if from_server {
                                     "server"
                                 } else {
@@ -164,7 +198,9 @@ fn connect(ip: &str) -> Result<TcpStream> {
 
 fn main() {
     unsafe {
+        //CURRENT_IP = String::from("217.160.61.87");
         CURRENT_IP = String::from("44.194.163.69");
+        //CURRENT_IP = String::from("185.251.233.49");
     };
 
     let proxy_server = TcpListener::bind("0.0.0.0:10001").unwrap();
@@ -200,6 +236,10 @@ fn main() {
                 if let Some(peer2) = &mut pw_client {
                     if send(peer1, peer2, false).is_err() || send(peer2, peer1, true).is_err() {
                         connected = false;
+
+                        unsafe {
+                            CURRENT_IP = String::from("44.194.163.69");
+                        };
                     }
                 }
             }
