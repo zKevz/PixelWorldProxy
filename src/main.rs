@@ -198,9 +198,7 @@ fn connect(ip: &str) -> Result<TcpStream> {
 
 fn main() {
     unsafe {
-        //CURRENT_IP = String::from("217.160.61.87");
         CURRENT_IP = String::from("44.194.163.69");
-        //CURRENT_IP = String::from("185.251.233.49");
     };
 
     let proxy_server = TcpListener::bind("0.0.0.0:10001").unwrap();
