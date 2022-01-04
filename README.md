@@ -1,6 +1,10 @@
 # PixelWorldProxy
 Simple Pixel World Proxy made in Rust.
 
+# Feature
+- Safe and fast
+- Support subserver switching
+
 # Usage
 Clone the repository:
 ```
