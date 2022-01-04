@@ -21,7 +21,7 @@ use bson::Document;
 use dns_lookup::lookup_host;
 
 const ENABLE_LOGGING: bool = true;
-const ENABLE_PING_LOGGING: bool = true;
+const ENABLE_PING_LOGGING: bool = false;
 static mut CURRENT_IP: String = String::new();
 
 fn encode_bson(document: &mut Document, vec: &mut Vec<u8>) -> Result<()> {
